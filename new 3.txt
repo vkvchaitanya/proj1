@@ -1,0 +1,418 @@
+SELECT    
+ SUBSTR(meaning,INSTR(flv.meaning,'|',1,2)+1)
+--INTO l_approver_name
+     FROM fnd_lookup_values flv
+     WHERE flv.language = USERENV ('lang')
+     AND flv.lookup_type = 'SKILL_SHINE1'
+--     AND SUBSTR(flv.lookup_code,1,INSTR(flv.lookup_code,'|',1,1)-1) =l_approver_seq_id         
+--     AND SUBSTR(flv.lookup_code,INSTR(flv.lookup_code,'|',1,1)+1,INSTR(flv.lookup_code,'|',1,2) - INSTR(flv.lookup_code,'|',1,1)-1) =UPPER(l_region)
+--     AND SUBSTR(flv.lookup_code,INSTR(flv.lookup_code,'|',1,2)+1) =UPPER(l_wh_location)
+     AND NVL (flv.end_date_active, SYSDATE) >SYSDATE - 1
+     AND flv.enabled_flag = 'Y';
+
+
+         wf_engine.setitemattrtext (itemtype   => itemtype,
+                                    itemkey    => itemkey,
+                                    aname      => 'APPROVER_NAME',
+                                    avalue     => l_approver_name);
+
+         resultout := wf_engine.eng_completed || ':' || 'Y';
+      EXCEPTION
+         WHEN OTHERS
+         THEN  
+            resultout := wf_engine.eng_completed || ':' || 'N';
+      END;
+   END;
+END;
+
+--
+CREATE TABLE APPS.BILL_ENTRY_MST
+(
+  TRANSPORTER_NAME  VARCHAR2(30 BYTE),
+  BILL_NO           NUMBER,
+  BILL_DATE         DATE,
+  BILL_TYPE         VARCHAR2(30 BYTE),
+  BILL_AMOUNT       NUMBER,
+  LR_AMOUNT         NUMBER
+)
+
+--
+
+insert into bill_entry_mst values ('UPS',123491,'01-MAR-2019','STANDARD',599,8801)
+
+insert into bill_entry_mst values ('UPS',123492,'01-MAR-2019','STANDARD',599,8802)
+
+insert into bill_entry_mst values ('UPS',123493,'01-MAR-2019','STANDARD',599,8803)
+
+commit;
+--
+select * from BILL_ENTRY_MST
+
+
+
+
+---------------
+
+
+Attributes  New Attribute
+Item Type: Workflow Notification Ex-1
+Internal Name: MSG_TEXT
+Display Name: Message Text for Skill Set
+Description: Message Text for Skill Set
+Length:100
+Apply
+
+Messages  New Message
+Message:
+Internal Name: WF_EX2_MSG
+Display Name: Workflow Lookup Message Ex-2
+Apply
+Body:
+Subject: Project Requirement info
+Text Body: &MSG_TEXT
+Apply
+Now drag and drop MSG_TEXT into Message
+
+Lookup_Types  New  
+Internal Name: WF_EX2_LKP
+Display Name: Workflow Lookup Type
+Apply
+
+WF_EX2_LKP  New Lookup Code 
+Internal Name: OA
+Display Name: Oracle APPS 11i
+Apply
+
+WF_EX2_LKP  New Lookup Code 
+Internal Name: SAP
+Display Name: SAP Enterprise
+Apply
+
+Notification  New Notification
+Internal Name: WF_EX2_N
+Display Name: Workflow Lookup Notification Ex-2
+Description: Workflow Lookup Notification Ex-2
+Result Type: Workflow Lookup Type
+Message: Workflow Lookup Message Ex-2
+Apply
+
+Message  WF_EX2_MSG  New Attribute
+Internal Name: MY_RES
+Display Name: My MSG Result
+Description: My MSG Result
+Type: Lookup
+Source: Respond
+Lookup Type: Workflow Lookup Type
+Apply
+
+Message  WF_EX2_MSG 
+‘Result’ tab
+Display Name: My_MSG
+Description: Message Result
+Lookup Type: Workflow Lookup Type
+Apply
+
+
+ while connecting to END, right click  Oracle APPS 11i
+
+
+ 
+Functions  END (END-1) , drag it into right side
+Node:
+Start/End: End
+Apply
+while connecting to END, right click  SAP Enterprise Ed-2
+ 
+Functions  END (END-2) , drag it into right side
+Node:
+Start/End: End
+Apply
+while connecting to END, right click  Default
+
+WF_EXT2_N Node  Value: OPERATIONS
+Apply
+Save
+
+Developer Studio  Type Internal Name: WF_EX2 	Go  Run 
+Workflow Identifier
+Item Key: A2
+User Key: A2  
+Workflow Attributes
+Message Text  for Skill Set: Workflow, Interface, Reports and Forms Customization
+Submit  OK
+
+Notifications  Click on ‘Project Requirement Info’ 
+My MSG Result: Oracle Apps 11i     here we have to select the response Oracle Apps 11i or SAP
+Click on ‘Oracle Apps 11i’  OK  OK  Close Window
+
+‘Windows Administrator Web Applications’ responsibility  Notifications
+View: All Notifications 
+Click on ‘Project Requirement Info’
+
+
+=====================================================================================
+
+Package::::::::::::::::::::::::::::::::
+
+CREATE OR REPLACE PACKAGE APPS.SKILL_SHINE_APPR_Hierarchy
+AS
+   PROCEDURE GETANDSETVALUES2 (p_i_itemtype   IN     VARCHAR2,			<--  these five are mandatory workflow procedure parameters, without these we cannot execute any workflow 
+                               p_i_itemkey    IN     VARCHAR2,
+                               p_i_actid      IN     NUMBER,			<-- id number from where the procedure is called
+                               p_i_funcmode   IN     VARCHAR2,
+                               p_i_o_result   IN OUT VARCHAR2);			<-- status of the workflow like complete, waiting, notified etc.. 
+
+   PROCEDURE get_approver (itemtype    IN            VARCHAR2,
+                           itemkey     IN            VARCHAR2,
+                           actid       IN            NUMBER,
+                           funcmode    IN            VARCHAR2,
+                           resultout      OUT NOCOPY VARCHAR2);
+
+   PROCEDURE get_billno_details (document_id     IN            VARCHAR2,
+                                 display_type    IN            VARCHAR2,
+                                 document        IN OUT NOCOPY CLOB,
+                                 document_type   IN OUT NOCOPY VARCHAR2);
+
+   
+END SKILL_SHINE_APPR_Hierarchy;
+
+
+CREATE OR REPLACE PACKAGE BODY APPS.SKILL_SHINE_APPR_Hierarchy
+IS
+   PROCEDURE GETANDSETVALUES2 (p_i_itemtype   IN     VARCHAR2,
+                               p_i_itemkey    IN     VARCHAR2,
+                               p_i_actid      IN     NUMBER,
+                               p_i_funcmode   IN     VARCHAR2,
+                               p_i_o_result   IN OUT VARCHAR2)
+   IS
+   BEGIN
+      IF (p_i_funcmode <> wf_engine.eng_run)
+      THEN
+         p_i_o_result := wf_engine.eng_null;
+         RETURN;
+      END IF;
+
+      wf_engine.
+       SetItemAttrText (
+         itemtype   => p_i_itemtype,
+         itemkey    => p_i_itemkey,
+         aname      => 'EMPLOYEE_DETAILS',
+         avalue     =>   'PLSQL:SKILL_SHINE_APPR_Hierarchy.get_billno_details/'
+                      || p_i_itemtype
+                      || ':'
+                      || p_i_itemkey);
+
+
+      p_i_o_result := 'COMPLETE';
+   EXCEPTION
+      WHEN OTHERS
+      THEN
+         wf_core.context ('SCALES_FORCASTING1', 'getandsetvalues1', NULL);
+         RAISE;
+   END getandsetvalues2;
+
+
+   PROCEDURE get_billno_details (document_id     IN            VARCHAR2,
+                                 display_type    IN            VARCHAR2,
+                                 document        IN OUT NOCOPY CLOB,
+                                 document_type   IN OUT NOCOPY VARCHAR2)
+   IS
+      l_item_type   wf_items.item_type%TYPE;
+      l_item_key    wf_items.item_key%TYPE;
+      l_document    VARCHAR2 (32000) := '';
+      NL            VARCHAR2 (1) := fnd_global.newline;
+      
+
+CURSOR c1 (p_i_header_id NUMBER)
+      IS
+         SELECT transporter_name,
+                bill_no,
+                bill_date,               
+                bill_type,
+                bill_amount,          
+                lr_amount
+           FROM bill_entry_mst;
+          
+   BEGIN
+      l_item_type := SUBSTR (document_id, 1, INSTR (document_id, ':') - 1);
+
+      l_item_key :=
+         SUBSTR (document_id,
+                 INSTR (document_id, ':') + 1,
+                 LENGTH (document_id) - 2);
+
+      l_document :=
+            l_document
+         || NL
+         || '<TABLE border=1 cellpadding=2 cellspacing=1>'
+         || NL;
+
+      l_document := l_document || '<TR>' || NL;
+
+      l_document :=
+         l_document || '<TH id="TRANSPORTER_NAME">' || 'TRANSPORTER_NAME' || '</TH>' || NL;
+
+      l_document :=
+         l_document || '<TH id="BILL_NO">' || 'BILL_NO' || '</TH>' || NL;
+
+      l_document :=
+         l_document || '<TH id="BILL_DATE">' || 'BILL_DATE' || '</TH>' || NL;
+
+      l_document :=
+         l_document || '<TH id="BILL_TYPE">' || 'BILL_TYPE' || '</TH>' || NL;
+
+      l_document :=
+            l_document
+         || '<TH id="BILL_AMOUNT">'
+         || 'BILL_AMOUNT'
+         || '</TH>'
+         || NL;
+
+      l_document :=
+            l_document
+         || '<TH id="LR_AMOUNT">'
+         || 'LR_AMOUNT'
+         || '</TH>'
+         || NL;
+
+      l_document := l_document || '</TR>' || NL;
+
+      FOR rec1 IN c1 (l_item_key)
+      LOOP
+         l_document := l_document || '<TR>' || NL;
+
+         l_document :=
+               l_document
+            || '<TD  nowrap align=center>'
+            || NVL (TO_CHAR (rec1.TRANSPORTER_NAME), 0)
+            || '</TD>'
+            || NL;
+         l_document :=
+               l_document
+            || '<TD  nowrap align=center >'
+            || NVL (rec1.BILL_NO, 0)
+            || '</TD>'
+            || NL;
+
+         l_document :=
+               l_document
+            || '<TD  nowrap align=center >'
+            || NVL (TO_CHAR (rec1.BILL_DATE), 0)
+            || '</TD>'
+            || NL;
+
+         l_document :=
+               l_document
+            || '<TD nowrap align=center >'
+            || NVL (TO_CHAR (rec1.BILL_TYPE), 0)
+            || '</TD>'
+            || NL;
+
+
+         l_document :=
+               l_document
+            || '<TD nowrap align=center >'
+            || NVL (TO_CHAR (rec1.BILL_AMOUNT), 0)
+            || '</TD>'
+            || NL;
+
+
+         l_document :=
+               l_document
+            || '<TD nowrap align=center >'
+            || NVL (rec1.LR_AMOUNT, 0)
+            || '</TD>'
+            || NL;
+
+
+         l_document := l_document || '</TR>' || NL;
+      END LOOP;
+
+      l_document := l_document || '</TABLE></P>' || NL;
+
+      l_document := l_document;
+
+      document := l_document;
+   END get_billno_details;
+
+   
+   PROCEDURE get_approver (itemtype    IN            VARCHAR2,
+                           itemkey     IN            VARCHAR2,
+                           actid       IN            NUMBER,
+                           funcmode    IN            VARCHAR2,
+                           resultout      OUT NOCOPY VARCHAR2)
+   IS
+      l_approver_seq_id   NUMBER := 0;
+      l_approver_name     VARCHAR2 (100);
+      l_region            VARCHAR2 (100);
+      l_wh_location       VARCHAR2 (100);
+      l_status            varchar2(100);
+      
+      
+   BEGIN
+   
+   
+      IF (funcmode <> wf_engine.eng_run)
+      THEN
+         resultout := wf_engine.eng_null;
+         RETURN;
+      END IF;
+
+
+      l_approver_seq_id :=
+         wf_engine.
+          GetItemAttrNumber (itemtype   => itemtype,
+                             itemkey    => itemkey,
+                             aname      => 'APPROVER_SEQ_ID');
+
+      l_region :=
+         wf_engine.
+          Getitemattrtext (itemtype   => itemtype,
+                           itemkey    => itemkey,
+                           aname      => 'REGION');
+
+      l_wh_location :=
+         wf_engine.
+          Getitemattrtext (itemtype   => itemtype,
+                           itemkey    => itemkey,
+                           aname      => 'WH_LOCATION');
+
+      IF NVL (l_approver_seq_id, 0) = 0
+      THEN
+         l_approver_seq_id := 1;
+      ELSE
+         l_approver_seq_id := l_approver_seq_id + 1;
+      END IF;
+
+      wf_engine.SetItemAttrNUMBER (itemtype   => itemtype,
+                                   itemkey    => itemkey,
+                                   aname      => 'APPROVER_SEQ_ID',
+                                   avalue     => l_approver_seq_id);
+
+      BEGIN
+         SELECT    
+ SUBSTR(meaning,INSTR(flv.meaning,'|',1,2)+1)
+INTO l_approver_name
+     FROM fnd_lookup_values flv
+     WHERE flv.language = USERENV ('lang')
+     AND flv.lookup_type = 'SKILL_SHINE1'
+     AND SUBSTR(flv.lookup_code,1,INSTR(flv.lookup_code,'|',1,1)-1) =l_approver_seq_id         
+     AND SUBSTR(flv.lookup_code,INSTR(flv.lookup_code,'|',1,1)+1,INSTR(flv.lookup_code,'|',1,2) - INSTR(flv.lookup_code,'|',1,1)-1) =UPPER(l_region)
+     AND SUBSTR(flv.lookup_code,INSTR(flv.lookup_code,'|',1,2)+1) =UPPER(l_wh_location)
+     AND NVL (flv.end_date_active, SYSDATE) >SYSDATE - 1
+     AND flv.enabled_flag = 'Y';
+
+
+         wf_engine.setitemattrtext (itemtype   => itemtype,
+                                    itemkey    => itemkey,
+                                    aname      => 'APPROVER_NAME',
+                                    avalue     => l_approver_name);
+
+         resultout := wf_engine.eng_completed || ':' || 'Y';
+      EXCEPTION
+         WHEN OTHERS
+         THEN  
+            resultout := wf_engine.eng_completed || ':' || 'N';
+      END;
+   END;
+END;
