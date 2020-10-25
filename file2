@@ -2,3 +2,4 @@ remote level file creation
 fetching changes
 fetch and merge
 branches creation and switching
+fetching only integrates commit with local but doesnt bring changes into local from remote
